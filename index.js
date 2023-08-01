@@ -3,7 +3,7 @@
 import inquirer from "inquirer"
 
 const WAGE_CENTS = 100
-const TIME_LIMIT_DAYS = 100
+const TIME_LIMIT_DAYS = 10
 const STARTING_CENTS = 4000
 const DAYS_PER_MONTH = 20
 const FEATURE_DAY_VALUE_CENTS = 5
@@ -15,13 +15,14 @@ async function run() {
     days: TIME_LIMIT_DAYS,
     cents: STARTING_CENTS,
     features: 0,
+    cruft: 0,
     releasedValue: 0,
   }
 
   while (state.days > 0) {
     console.log("")
     console.log(`Days left: ${state.days}    Funds: $${dollars(state.cents)}`)
-    console.log(`Codebase Size: ${loc(state.features, 0)} lines`)
+    console.log(`Codebase Size: ${loc(state)} lines`)
     console.log(`Marketing estimates your software will make $${dollars(estimatedValueCents(state.features) * DAYS_PER_MONTH)} per month`)
     console.log(`Your current contracts bring in $${dollars(state.releasedValue * DAYS_PER_MONTH)} per month`)
     
@@ -44,13 +45,15 @@ async function run() {
     state = earnRevenue(state)
   }
   
+  console.log("GAME OVER")
+  console.log(`Your total profit was $${dollars(state.cents - STARTING_CENTS)}.`)
 }
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-function loc(features, cruft) {
+function loc({features, cruft}) {
   return (features + cruft) * 100
 }
 
@@ -59,11 +62,20 @@ function buildAction(action) {
     case "add a feature":
       return {
         describe() { return "add a feature to your software" },
-        enact(state) {
-          return {
-            ...state,
-            cents: state.cents - WAGE_CENTS,
-            features: state.features + 1,
+        async enact(state) {
+          state = payProgrammer(state)
+
+          if (Math.random() < featureFailureProbability(state)) {
+            console.log("Unfortunately, they got stuck on some crufty code and couldn't finish the feature today.")
+            console.log("Maybe tomorrow!")
+            await(sleep(1000))
+            return state
+          } else {
+            return {
+              ...state,
+              features: state.features + 1,
+              cruft: state.cruft + 1,
+            }
           }
         }
       }
@@ -71,14 +83,19 @@ function buildAction(action) {
       return {
         describe() { return "release the software to customers" },
         enact(state) {
+          state = payProgrammer(state)
+
           return {
             ...state,
-            cents: state.cents - WAGE_CENTS,
             releasedValue: estimatedValueCents(state.features),
           }
         }
       }
   }
+}
+
+function payProgrammer(state) {
+  return {...state, cents: state.cents - WAGE_CENTS}
 }
 
 function passTime(state) {
@@ -91,6 +108,10 @@ function earnRevenue(state) {
 
 function estimatedValueCents(features) {
   return features * FEATURE_DAY_VALUE_CENTS
+}
+
+function featureFailureProbability({cruft}) {
+  return cruft / (cruft + 30)
 }
 
 function dollars(cents) {
