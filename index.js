@@ -3,7 +3,7 @@
 import inquirer from "inquirer"
 
 const WAGE_CENTS = 100
-const TIME_LIMIT_DAYS = 10
+const TIME_LIMIT_DAYS = 100
 const STARTING_CENTS = 4000
 const DAYS_PER_MONTH = 20
 const FEATURE_DAY_VALUE_CENTS = 5
@@ -15,16 +15,22 @@ async function run() {
     days: TIME_LIMIT_DAYS,
     cents: STARTING_CENTS,
     features: 0,
+    bugs: 0,
     cruft: 0,
     releasedValue: 0,
   }
 
   while (state.days > 0) {
     console.log("")
-    console.log(`Days left: ${state.days}    Funds: $${dollars(state.cents)}`)
-    console.log(`Codebase Size: ${loc(state)} lines`)
-    console.log(`Marketing estimates your software will make $${dollars(estimatedValueCents(state.features) * DAYS_PER_MONTH)} per month`)
-    console.log(`Your current contracts bring in $${dollars(state.releasedValue * DAYS_PER_MONTH)} per month`)
+    
+    if (process.argv[2] === "debug") {
+      console.log(state)
+    } else {
+      console.log(`Days left: ${state.days}    Funds: $${dollars(state.cents)}`)
+      console.log(`Codebase Size: ${loc(state)} lines`)
+      console.log(`Marketing estimates your software will make $${dollars(estimatedValueCents(state.features) * DAYS_PER_MONTH)} per month`)
+      console.log(`Your current contracts bring in $${dollars(state.releasedValue * DAYS_PER_MONTH)} per month`)
+    }
     
     console.log("")
     const action = await inquirer
@@ -32,7 +38,7 @@ async function run() {
         type: "list",
         name: "action",
         message: "what do you want to do?",
-        choices: ["add a feature", "release"],
+        choices: ["add a feature", "refactor", "release"],
       }).then(({action}) => action).then(buildAction)
     
     console.log("")
@@ -66,28 +72,58 @@ function buildAction(action) {
           state = payProgrammer(state)
 
           if (Math.random() < featureFailureProbability(state)) {
-            console.log("Unfortunately, they got stuck on some crufty code and couldn't finish the feature today.")
+            console.log("Unfortunately, they get stuck on some crufty code and can't finish the feature today.")
             console.log("Maybe tomorrow!")
             await(sleep(1000))
             return state
-          } else {
-            return {
-              ...state,
-              features: state.features + 1,
-              cruft: state.cruft + 1,
-            }
+          }
+          
+          if (Math.random() < bugProbability(state)) {
+            state = {...state, bugs: state.bugs + 1}
+          }
+          
+          return {
+            ...state,
+            features: state.features + 1,
+            cruft: state.cruft + 1,
+          }
+        }
+      }
+    case "refactor":
+      return {
+        describe() { return "tidy up the code" },
+        async enact(state) {
+          state = payProgrammer(state)
+
+          if (Math.random() < bugProbability(state)) {
+            state = {...state, bugs: state.bugs + 1}
+          }
+          
+          return {
+            ...state,
+            cruft: Math.max(state.cruft - 1, 0),
           }
         }
       }
     case "release":
       return {
         describe() { return "release the software to customers" },
-        enact(state) {
+        async enact(state) {
           state = payProgrammer(state)
+
+          if (state.bugs > 0) {
+            console.log(`Unfortunately, customers report ${state.bugs} bugs. They won't pay as much for the software as you thought they would...`)
+            await sleep(1000)
+          }
+
+          const netFeatures = Math.max(state.features - state.bugs, 0)
 
           return {
             ...state,
-            releasedValue: estimatedValueCents(state.features),
+            features: netFeatures,
+            bugs: 0,
+            cruft: state.cruft + state.bugs,
+            releasedValue: estimatedValueCents(netFeatures),
           }
         }
       }
@@ -112,6 +148,11 @@ function estimatedValueCents(features) {
 
 function featureFailureProbability({cruft}) {
   return cruft / (cruft + 30)
+}
+
+function bugProbability({features, cruft}) {
+  const size = features + cruft
+  return size / (size + 30)
 }
 
 function dollars(cents) {
