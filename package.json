@@ -1,10 +1,35 @@
 {
-  "name": "software-dev-sim",
-  "version": "1.0.0",
-  "main": "index.js",
-  "license": "MIT",
+  "bin": {
+    "software-dev-sim": "./index.js"
+  },
   "dependencies": {
     "inquirer": "^9.2.9"
   },
-  "type": "module"
+  "description": "A silly console game that simulates running a software business — now with an importable, deterministic game engine.",
+  "exports": {
+    ".": "./src/engine.js",
+    "./engine": "./src/engine.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "index.js",
+    "README.md"
+  ],
+  "license": "MIT",
+  "main": "./src/engine.js",
+  "name": "@gavmor/software-dev-sim",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gavmor/software-dev-sim.git"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test/engine.test.js"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }
