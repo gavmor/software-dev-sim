@@ -17,6 +17,7 @@ async function run() {
     features: 0,
     bugs: 0,
     cruft: 0,
+    unitTests: 0,
     releasedValue: 0,
   }
 
@@ -27,7 +28,7 @@ async function run() {
       console.log(state)
     } else {
       console.log(`Days left: ${state.days}    Funds: $${dollars(state.cents)}`)
-      console.log(`Codebase Size: ${loc(state)} lines`)
+      console.log(`Codebase Size: ${loc(state)} lines    Unit tests: ${state.unitTests}`)
       console.log(`Marketing estimates your software will make $${dollars(estimatedValueCents(state.features) * DAYS_PER_MONTH)} per month`)
       console.log(`Your current contracts bring in $${dollars(state.releasedValue * DAYS_PER_MONTH)} per month`)
     }
@@ -38,7 +39,7 @@ async function run() {
         type: "list",
         name: "action",
         message: "what do you want to do?",
-        choices: ["add a feature", "refactor", "release"],
+        choices: ["add a feature", "refactor", "add unit tests", "release"],
       }).then(({action}) => action).then(buildAction)
     
     console.log("")
@@ -105,6 +106,18 @@ function buildAction(action) {
           }
         }
       }
+    case "add unit tests":
+      return {
+        describe() { return "write some unit tests" },
+        async enact(state) {
+          state = payProgrammer(state)
+
+          return {
+            ...state,
+            unitTests: state.unitTests + 10,
+          }
+        }
+      }
     case "release":
       return {
         describe() { return "release the software to customers" },
@@ -150,9 +163,10 @@ function featureFailureProbability({cruft}) {
   return cruft / (cruft + 30)
 }
 
-function bugProbability({features, cruft}) {
+function bugProbability({features, cruft, unitTests}) {
   const size = features + cruft
-  return size / (size + 30)
+  const coverage = Math.min(1, unitTests / (size * 4))
+  return Math.max(0.01, size / (size + 30) * (1 - coverage))
 }
 
 function dollars(cents) {
