@@ -15,6 +15,9 @@ import {
   WAGE_CENTS,
   TIME_LIMIT_DAYS,
   STARTING_CENTS,
+  createKnowledge,
+  updateKnowledge,
+  playerView,
 } from "../src/engine.js";
 
 test("createGame returns the documented initial state", () => {
@@ -171,4 +174,73 @@ test("every action has UI metadata", () => {
     assert.ok(ACTION_INFO[a].label, a);
     assert.ok(ACTION_INFO[a].enactDescription, a);
   }
+});
+
+test("playerView hides the live bug count (fog-of-war invariant)", () => {
+  // accumulate live bugs without releasing
+  let game = createGame({ seed: 3 });
+  let knowledge = createKnowledge();
+  for (let i = 0; i < 10; i++) {
+    const r = step(game, "feature");
+    game = r.state;
+    knowledge = updateKnowledge(knowledge, r.events);
+  }
+  assert.ok(game.bugs > 0, "live bugs accumulated");
+  const view = playerView(game, knowledge);
+  assert.equal(view.bugs, 0, "the view shows only the last reported count");
+  assert.ok(!("liveBugs" in view));
+});
+
+test("a release is the only moment the view's bug count updates", () => {
+  let game = createGame({ seed: 3 });
+  let knowledge = createKnowledge();
+  for (let i = 0; i < 10; i++) {
+    const r = step(game, "feature");
+    game = r.state;
+    knowledge = updateKnowledge(knowledge, r.events);
+  }
+  const liveBugs = game.bugs;
+  assert.ok(liveBugs > 0);
+  const r = step(game, "release");
+  game = r.state;
+  knowledge = updateKnowledge(knowledge, r.events);
+  assert.equal(knowledge.knownBugs, liveBugs);
+  assert.equal(playerView(game, knowledge).bugs, liveBugs);
+  // a clean release resets the known count to zero
+  const r2 = step(game, "release");
+  const knowledge2 = updateKnowledge(knowledge, r2.events);
+  assert.equal(playerView(r2.state, knowledge2).bugs, 0);
+});
+
+test("updateKnowledge is immutable", () => {
+  const k = createKnowledge();
+  const snapshot = { ...k };
+  updateKnowledge(k, [{ type: "released", features: 5 }]);
+  assert.deepEqual(k, snapshot);
+});
+
+test("playerView xray mode carries the live count (explicit lab override)", () => {
+  let game = createGame({ seed: 3 });
+  const knowledge = createKnowledge();
+  for (let i = 0; i < 10; i++) game = step(game, "feature").state;
+  assert.ok(game.bugs > 0);
+  assert.equal(playerView(game, knowledge, { xray: true }).bugs, game.bugs);
+});
+
+test("playerView exposes exactly the player-observable fields", () => {
+  const game = createGame({ seed: 1 });
+  const view = playerView(game, createKnowledge());
+  assert.deepEqual(Object.keys(view).sort(), [
+    "bugs",
+    "cents",
+    "cruft",
+    "day",
+    "daysLeft",
+    "daysTotal",
+    "done",
+    "features",
+    "releasedValueCents",
+    "startingCents",
+    "unitTests",
+  ]);
 });

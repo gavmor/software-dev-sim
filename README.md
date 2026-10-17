@@ -44,6 +44,30 @@ Events returned by `step` (for narration or animation): `feature_failed`,
 `feature_added`, `bug_introduced`, `refactored`, `tests_added`,
 `bugs_reported`, `released`.
 
+## Fog of war
+
+In the original game you never learn the live bug count — customers report
+bugs only when you release. Strategies must observe the game through
+`playerView()`, never through raw `GameState`:
+
+```js
+import { createGame, step, createKnowledge, updateKnowledge, playerView } from "@gavmor/software-dev-sim";
+
+let game = createGame({ seed: 42 });
+let knowledge = createKnowledge();
+while (!game.done) {
+  const view = playerView(game, knowledge); // ← the strategy sees only this
+  const { state, events } = step(game, pickAction(view));
+  knowledge = updateKnowledge(knowledge, events); // releases reveal the bug count
+  game = state;
+}
+```
+
+`playerView()` is the single choke point: under fog of war its `bugs` field
+is the last *reported* count, so a strategy typed against the view cannot
+observe — or even name — the live value. Pass `{ xray: true }` for the
+explicit lab override, where the view carries the live count instead.
+
 ## Install from GitHub Packages
 
 ```sh

@@ -5,7 +5,7 @@
   "dependencies": {
     "inquirer": "^9.2.9"
   },
-  "description": "A silly console game that simulates running a software business — now with an importable, deterministic game engine.",
+  "description": "A silly console game that simulates running a software business \u2014 now with an importable, deterministic game engine.",
   "exports": {
     ".": "./src/engine.js",
     "./engine": "./src/engine.js",
@@ -31,5 +31,5 @@
     "test": "node --test test/engine.test.js"
   },
   "type": "module",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }

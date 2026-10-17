@@ -219,3 +219,68 @@ export function step(prev, action) {
 
   return { state, events };
 }
+
+/**
+ * Fog of war, enforced by interface segregation.
+ *
+ * In the original game you never learn the live bug count — customers
+ * report bugs only when you release. So strategies must not observe raw
+ * GameState (which carries the live count). Instead they observe a
+ * PlayerView, built by playerView() below. That function is the single
+ * choke point: there is no other path from a live bug count to a
+ * strategy, which makes the invariant structural rather than
+ * conventional.
+ *
+ * Player knowledge is explicit state, updated only from step() events:
+ *
+ *   let knowledge = createKnowledge();
+ *   let view = playerView(game, knowledge); // what the strategy may see
+ *   const { state: next, events } = step(game, pickAction(view));
+ *   knowledge = updateKnowledge(knowledge, events);
+ *   game = next;
+ */
+
+/** What a player is allowed to know between releases. */
+export function createKnowledge() {
+  return { knownBugs: 0 };
+}
+
+/**
+ * Fold a day's events into player knowledge. A release is the only
+ * moment the bug count is revealed (0 when no bugs are reported).
+ * Returns a NEW knowledge object; the input is untouched.
+ */
+export function updateKnowledge(knowledge, events) {
+  const next = { ...knowledge };
+  if (events.some((e) => e.type === "released")) {
+    const reported = events.find((e) => e.type === "bugs_reported");
+    next.knownBugs = reported ? reported.count : 0;
+  }
+  return next;
+}
+
+/**
+ * Project a GameState into the player's view. The live bug count never
+ * crosses this boundary: under fog of war `bugs` is the last reported
+ * count, so a strategy typed against PlayerView cannot observe — or
+ * even name — the live value.
+ *
+ * Pass { xray: true } for the explicit lab override, where the view
+ * carries the live count instead.
+ */
+export function playerView(state, knowledge, opts = {}) {
+  const { xray = false } = opts;
+  return {
+    day: state.day,
+    daysLeft: state.daysLeft,
+    daysTotal: state.daysTotal,
+    cents: state.cents,
+    startingCents: state.startingCents,
+    features: state.features,
+    cruft: state.cruft,
+    unitTests: state.unitTests,
+    releasedValueCents: state.releasedValueCents,
+    done: state.done,
+    bugs: xray ? state.bugs : knowledge.knownBugs,
+  };
+}
